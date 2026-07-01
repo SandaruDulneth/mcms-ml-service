@@ -56,7 +56,16 @@ The frontend should not call this service directly in production. The Node.js ba
 
 ```text
 .
-├── main.py
+├── app/
+│   ├── api/                  # FastAPI routers and dependencies
+│   │   └── routes/           # Info, prediction, and extraction endpoints
+│   ├── core/                 # Settings and logging configuration
+│   ├── data/                 # Gazetteer and community keyword data
+│   ├── ml/                   # Model 2 architecture and model registry
+│   ├── schemas/              # Pydantic request schemas
+│   ├── services/             # Prediction, extraction, and full pipeline logic
+│   └── main.py               # Application factory and lifespan setup
+├── main.py                   # Lightweight Uvicorn entry point
 ├── requirements.txt
 ├── mcms_model1_final/
 ├── mcms_model2_humaid/
@@ -223,7 +232,7 @@ The recommended integration pattern is:
 
 - Multilingual processing is planned but not fully implemented yet.
 - Location extraction currently combines spaCy English NER with a Sri Lankan gazetteer fallback.
-- Affected community extraction is rule-based and depends on the keyword list in `main.py`.
+- Affected community extraction is rule-based and depends on the keyword list in `app/data/extraction_data.py`.
 - Model performance and response latency may vary depending on hardware.
 - This service is intended for development/research use and should be reviewed before production deployment.
 

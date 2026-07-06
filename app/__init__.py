@@ -1,0 +1,1 @@
+"""MCMS FastAPI application package."""

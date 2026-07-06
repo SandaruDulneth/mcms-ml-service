@@ -1,0 +1,39 @@
+LOCATION_LABELS = {"GPE", "LOC", "FAC"}
+
+SRI_LANKA_PLACES = [
+    "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
+    "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
+    "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee",
+    "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla",
+    "Monaragala", "Ratnapura", "Kegalle", "Negombo", "Kalmunai",
+    "Sri Jayawardenepura Kotte", "Dehiwala", "Mount Lavinia", "Moratuwa",
+    "Katunayake", "Wattala", "Ja-Ela", "Maharagama", "Kotte", "Kaduwela",
+    "Homagama", "Nugegoda", "Panadura", "Beruwala", "Aluthgama", "Bentota",
+    "Hikkaduwa", "Weligama", "Tangalle", "Tissamaharama", "Embilipitiya",
+    "Peradeniya", "Gampola", "Nawalapitiya", "Wattegama", "Dambulla",
+    "Sigiriya", "Mannar Island", "Point Pedro", "Chavakachcheri",
+    "Valvettithurai", "Chilaw", "Wennappuwa", "Marawila", "Kuliyapitiya",
+    "Nikaweratiya", "Mawanella", "Rambukkana", "Warakapola", "Avissawella",
+    "Hatton", "Talawakele", "Bandarawela", "Haputale", "Diyatalawa", "Ella",
+    "Wellawaya", "Buttala", "Kataragama", "Akurana", "Galagedara",
+    "Wariyapola", "Pannala", "Anamaduwa", "Medawachchiya", "Eravur",
+    "Valaichchenai", "Kalkudah", "Pasikudah", "Akkaraipattu",
+    "Sammanthurai", "Dehiattakandiya", "Mahiyanganaya", "Passara", "Welimada",
+    "Dickoya", "Maskeliya", "Ginigathena", "Balangoda", "Pelmadulla",
+    "Kahawatta", "Eheliyagoda", "Deniyaya", "Akuressa", "Ahangama",
+]
+
+COMMUNITY_KEYWORDS = {
+    "elderly": ["elderly", "senior citizens", "seniors", "old age home", "aged people"],
+    "children": ["children", "kids", "infants", "toddlers", "students", "schoolchildren", "babies"],
+    "women": ["women", "pregnant women", "mothers", "expectant mothers"],
+    "disabled": ["disabled", "people with disabilities", "differently abled", "handicapped", "wheelchair"],
+    "farmers": ["farmers", "farming community", "agricultural workers", "crop growers"],
+    "fishermen": ["fishermen", "fishing community", "fisherfolk"],
+    "patients": ["patients", "hospital patients", "sick people", "injured people", "wounded"],
+    "homeless": ["homeless", "displaced people", "displaced families", "refugees", "evacuees"],
+    "low_income": ["poor families", "low-income families", "slum residents", "daily wage workers"],
+    "tourists": ["tourists", "visitors", "foreign nationals"],
+    "rescue_workers": ["rescue workers", "rescue teams", "first responders", "volunteers", "relief workers"],
+    "residents": ["residents", "villagers", "local community", "inhabitants", "families"],
+}

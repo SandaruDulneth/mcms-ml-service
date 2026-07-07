@@ -115,7 +115,7 @@ python -m spacy download en_core_web_sm
 ## Running the API
 
 ```bash
-uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --port 8000
 ```
 
 The API will be available at:

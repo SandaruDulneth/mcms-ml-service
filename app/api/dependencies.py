@@ -23,6 +23,15 @@ def require_component(registry: ModelRegistry, name: str, component: object) -> 
         )
 
 
+def require_translation(pipeline: PipelineService) -> None:
+    """Return HTTP 503 when the Gemini translation service is not configured."""
+    if pipeline.translation is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Translation service not available — set GEMINI_API_KEY in .env and restart",
+        )
+
+
 def require_text(text: str) -> str:
     """Reject empty or whitespace-only report text and return the valid text."""
     if not text.strip():

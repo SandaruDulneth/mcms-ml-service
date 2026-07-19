@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "MCMS - Multilingual Crisis Management System"
-    app_version: str = "1.2.0"
+    app_version: str = "1.3.0"
     model1_dir: Path = BASE_DIR / "mcms_model1_final"
     model2_dir: Path = BASE_DIR / "mcms_model2_humaid"
     model3_dir: Path = BASE_DIR / "mcms_model3_final"
@@ -20,6 +20,9 @@ class Settings:
         for origin in os.getenv("CORS_ORIGINS", "*").split(",")
         if origin.strip()
     )
+    # Gemini API key — required for /predict/full/multilingual route
+    # Set this in your .env file as GEMINI_API_KEY=AIzaSy...
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
 
 settings = Settings()

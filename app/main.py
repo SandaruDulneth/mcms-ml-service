@@ -1,6 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,35 +20,22 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Load shared AI resources once at startup and release control on shutdown."""
-    # Models are expensive to load, so one registry is shared by every request.
     registry = ModelRegistry(settings)
     registry.load_all()
 
-    # Load translation service only if an API key is configured
-    translation: TranslationService | None = None
-    if settings.gemini_api_key:
-        try:
-            translation = TranslationService(settings.gemini_api_key)
-            logger.info("TranslationService loaded — multilingual route available")
-        except Exception as error:
-            logger.warning("TranslationService failed to load: %s", error)
-    else:
-        logger.warning(
-            "GEMINI_API_KEY not set — /predict/full/multilingual will return 503"
-        )
+    # MyMemory needs no API key — always loads successfully
+    translation = TranslationService()
+    logger.info("TranslationService loaded — using MyMemory (free, no key needed)")
 
-    # app.state lets FastAPI dependencies access these shared objects safely.
     application.state.registry = registry
     application.state.pipeline = PipelineService(registry, translation)
     yield
 
 
 def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
     application = FastAPI(
         title=settings.app_name,
-        description="Three-model NLP pipeline with location, community extraction, and multilingual support",
+        description="Three-model NLP pipeline with multilingual support via MyMemory",
         version=settings.app_version,
         lifespan=lifespan,
     )
@@ -55,7 +45,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    # Add all endpoints collected by app/api/router.py.
     application.include_router(api_router)
     return application
 

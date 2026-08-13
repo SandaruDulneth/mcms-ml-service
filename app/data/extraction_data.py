@@ -1,4 +1,28 @@
 LOCATION_LABELS = {"GPE", "LOC", "FAC"}
+# Disaster/event words that spaCy can sometimes mislabel as LOC.
+# These are not real place names, so the location extractor should ignore them.
+LOCATION_EXCLUSION_WORDS = {
+    "cold",
+    "cold wave",
+    "cyclone",
+    "drought",
+    "earthquake",
+    "epidemic",
+    "fire",
+    "flash flood",
+    "flood",
+    "flooding",
+    "floods",
+    "landslide",
+    "landslides",
+    "storm",
+    "storms",
+    "tsunami",
+    "tsunami warning",
+    "tsunami waves",
+    "wildfire",
+    "wildfires",
+}
 
 SRI_LANKA_PLACES = [
     "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",

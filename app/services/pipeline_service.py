@@ -93,11 +93,11 @@ class PipelineService:
 
         # ── Assemble final response ───────────────────────────────────────────
         result = {
-            "original_text"          : text[:200],
+            "original_text"          : text,
             "detected_language"      : translation_meta["detected_language"],
             "language_code"          : translation_meta["language_code"],
             "was_translated"         : translation_meta["was_translated"],
-            "translated_text"        : english_text[:200],
+            "translated_text"        : english_text,
             "translation_confidence" : translation_meta["confidence"],
             **pipeline_result,
             # Override so input_text always shows the original, not the translation

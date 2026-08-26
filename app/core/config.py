@@ -20,9 +20,6 @@ class Settings:
         for origin in os.getenv("CORS_ORIGINS", "*").split(",")
         if origin.strip()
     )
-    # Gemini API key — required for /predict/full/multilingual route
-    # Set this in your .env file as GEMINI_API_KEY=AIzaSy...
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
 
 settings = Settings()

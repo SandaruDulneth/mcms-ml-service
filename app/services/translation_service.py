@@ -68,54 +68,13 @@ SL_PLACE_CORRECTIONS = {
     "gal le"             : "Galle",
 }
 
-# ── Location extraction prompt for Gemini (kept as optional fallback) ─────────
-_LOCATION_EXTRACTION_PROMPT = """You are a geographic entity extraction assistant for a disaster management system.
-
-Find ALL place names mentioned in the following text and return them as standard English romanised spellings.
-
-For Sri Lankan places use official English names:
-නුවරඑළිය = "Nuwara Eliya", රත්නපුර = "Ratnapura", කෑගල්ල = "Kegalle",
-කොළඹ = "Colombo", කන්දේ = "Kandy", ගාල්ල = "Galle", මාතර = "Matara",
-හම්බන්තොට = "Hambantota", යාපනය = "Jaffna", ත්‍රිකුණාමලය = "Trincomalee",
-අනුරාධපුරය = "Anuradhapura", පොළොන්නරුව = "Polonnaruwa", බදුල්ල = "Badulla",
-මොණරාගල = "Monaragala", කුරුණෑගල = "Kurunegala", පුත්තලම = "Puttalam",
-නිගම්බො = "Negombo", ගම්පහ = "Gampaha", කළුතර = "Kalutara",
-கண்டி = "Kandy", யாழ்ப்பாணம் = "Jaffna", மட்டக்களப்பு = "Batticaloa",
-அம்பாறை = "Ampara", திருகோணமலை = "Trincomalee", இரத்தினபுரி = "Ratnapura",
-அனுராதபுரம் = "Anuradhapura", கொழும்பு = "Colombo", கேகாலை = "Kegalle",
-நுவரெலியா = "Nuwara Eliya", பதுளை = "Badulla"
-
-If no place names are found, return an empty array.
-Respond with ONLY valid JSON, no markdown, no explanation.
-
-Text: "{text}"
-
-{{"locations": ["<place name 1>", "<place name 2>"]}}"""
-
 
 class TranslationService:
     """
     Language detection and translation using MyMemory API (free, no key needed).
-    Location extraction uses a Sri Lanka place name gazetteer applied to the
-    translated text, with an optional Gemini fallback if configured.
     """
 
-    def __init__(self, api_key: str = "") -> None:
-        # api_key kept for interface compatibility but not required for MyMemory
-        self.gemini_client = None
-        self.gemini_model  = "gemini-2.0-flash-lite"
-
-        # Optionally initialise Gemini for location extraction only
-        if api_key:
-            try:
-                from google import genai
-                from google.genai import types as genai_types
-                self.gemini_client = genai.Client(api_key=api_key)
-                self._genai_types  = genai_types
-                logger.info("Gemini client ready for location extraction fallback")
-            except Exception as e:
-                logger.warning("Gemini not available: %s — using gazetteer only", e)
-
+    def __init__(self) -> None:
         logger.info("TranslationService ready — using MyMemory API (free)")
 
     # ── Public methods ────────────────────────────────────────────────────────
@@ -156,34 +115,6 @@ class TranslationService:
             "confidence"       : "medium",
         }
 
-    def extract_locations_from_original(self, text: str) -> list[str]:
-        """
-        Extract Sri Lankan place names from original non-English text.
-        Uses Gemini if available, otherwise returns empty list
-        (gazetteer in pipeline_service handles the rest).
-        """
-        if not self.gemini_client:
-            return []
-
-        prompt = _LOCATION_EXTRACTION_PROMPT.format(text=text.strip())
-        try:
-            response = self.gemini_client.models.generate_content(
-                model   = self.gemini_model,
-                contents= prompt,
-                config  = self._genai_types.GenerateContentConfig(
-                    temperature        = 0.1,
-                    response_mime_type = "application/json",
-                ),
-            )
-            raw = response.text.strip()
-            raw = re.sub(r"^```(?:json)?\s*", "", raw)
-            raw = re.sub(r"\s*```$", "", raw)
-            parsed = json.loads(raw)
-            return [str(loc).strip() for loc in parsed.get("locations", []) if str(loc).strip()]
-        except Exception as error:
-            logger.warning("Gemini location extraction failed: %s", error)
-            return []
-
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _detect_language(self, text: str) -> tuple[str, str]:
@@ -205,7 +136,6 @@ class TranslationService:
         Call MyMemory REST API to translate text to English.
         MyMemory has a 500 char limit per request — splits longer text.
         """
-        # MyMemory limit is 500 chars per call
         chunks = self._split_text(text, 500)
         translated_parts = []
 
@@ -213,7 +143,7 @@ class TranslationService:
             params = urllib.parse.urlencode({
                 "q"   : chunk,
                 "langpair": f"{source_lang}|en",
-                "de"  : "mcms-disaster-system@university.ac.uk",  # identifies your app (good practice)
+                "de"  : "mcms-disaster-system@university.ac.uk",
             })
             url = f"{MYMEMORY_URL}?{params}"
 
@@ -222,7 +152,6 @@ class TranslationService:
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     data = json.loads(resp.read().decode())
                     translated = data.get("responseData", {}).get("translatedText", chunk)
-                    # MyMemory returns "MYMEMORY WARNING" on quota issues
                     if "MYMEMORY WARNING" in str(translated):
                         logger.warning("MyMemory quota warning — using original chunk")
                         translated_parts.append(chunk)
@@ -230,7 +159,7 @@ class TranslationService:
                         translated_parts.append(translated)
             except Exception as error:
                 logger.error("MyMemory translation error: %s", error)
-                translated_parts.append(chunk)  # fallback: keep original
+                translated_parts.append(chunk)
 
         return " ".join(translated_parts)
 
@@ -244,7 +173,6 @@ class TranslationService:
             if len(text) <= max_chars:
                 chunks.append(text)
                 break
-            # Try to split at sentence boundary
             split_at = text.rfind(". ", 0, max_chars)
             if split_at == -1:
                 split_at = max_chars

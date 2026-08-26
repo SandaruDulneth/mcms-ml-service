@@ -55,41 +55,17 @@ class PipelineService:
         Full pipeline with multilingual support.
 
         For non-English input:
-          Step 1 — Translate to English (Gemini)
-          Step 2 — Run classifiers + spaCy NER on English text
-          Step 3 — Extract locations directly from original text (Gemini)
-          Step 4 — Merge Step 2 + Step 3 location results (deduplicated)
-
-        This two-pass location strategy ensures place names are captured
-        even when translation loses or alters proper nouns.
+          Step 1 — Detect language & translate to English via MyMemory API
+          Step 2 — Run ML classifiers + spaCy NER on translated English text
         """
         started_at = time.perf_counter()
 
-        # ── Step 1: Translate ─────────────────────────────────────────────────
+        # ── Step 1: Translate via MyMemory ────────────────────────────────────
         translation_meta = self.translation.detect_and_translate(text)
         english_text     = translation_meta["translated_text"]
-        is_english       = translation_meta["is_english"]
 
         # ── Step 2: Full pipeline on English text ─────────────────────────────
         pipeline_result = self.predict_full(english_text)
-
-        # ── Step 3: Gemini location extraction on original text ───────────────
-        # Only run for non-English input — no benefit for English text
-        gemini_locations: list[str] = []
-        if not is_english:
-            gemini_locations = self.translation.extract_locations_from_original(text)
-            logger.info(
-                "Gemini extracted %d location(s) from original text: %s",
-                len(gemini_locations),
-                gemini_locations,
-            )
-
-        # ── Step 4: Merge locations ───────────────────────────────────────────
-        if gemini_locations:
-            pipeline_result["location_extraction"] = self._merge_locations(
-                spacy_result   = pipeline_result.get("location_extraction"),
-                gemini_locations = gemini_locations,
-            )
 
         # ── Assemble final response ───────────────────────────────────────────
         result = {
@@ -104,49 +80,9 @@ class PipelineService:
             "input_text"             : text[:200],
             "latency_ms"             : round((time.perf_counter() - started_at) * 1000, 1),
         }
-        # Rebuild summary with the merged locations
+        # Rebuild summary with the pipeline locations
         result["summary"] = self._build_summary(result)
         return result
-
-    # ── Location merge ────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _merge_locations(
-        spacy_result    : dict[str, Any] | None,
-        gemini_locations: list[str],
-    ) -> dict[str, Any]:
-        """
-        Merge spaCy NER results with Gemini-extracted location names.
-
-        spaCy results come as full objects {text, label, start, end, source}.
-        Gemini results are plain strings — we wrap them in the same shape
-        so the response format stays consistent for the frontend.
-        Duplicates are removed case-insensitively.
-        """
-        existing_locations: list[dict[str, Any]] = (
-            spacy_result.get("locations", []) if spacy_result else []
-        )
-
-        # Build a set of already-known names (lowercase) for deduplication
-        seen: set[str] = {loc["text"].lower() for loc in existing_locations}
-
-        # Add Gemini locations that aren't already present
-        for name in gemini_locations:
-            if name.lower() not in seen:
-                seen.add(name.lower())
-                existing_locations.append({
-                    "text"  : name,
-                    "label" : "GPE",
-                    "start" : -1,        # no character offset for Gemini extractions
-                    "end"   : -1,
-                    "source": "gemini",  # clearly tagged so frontend can distinguish
-                })
-
-        return {
-            "locations"     : existing_locations,
-            "location_count": len(existing_locations),
-            "has_location"  : len(existing_locations) > 0,
-        }
 
     # ── Summary builder ───────────────────────────────────────────────────────
 

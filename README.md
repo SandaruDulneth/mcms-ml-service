@@ -1,250 +1,334 @@
-﻿# MCMS FastAPI AI Backend
+<![CDATA[# 🧠 MCMS AI Service — NLP Classification & Translation Pipeline
 
-FastAPI service for the **Multilingual Crisis Management System (MCMS)**. This backend provides AI/NLP inference for crisis reports submitted by users or collected from external sources.
+> FastAPI micro-service powering the AI backbone of the **Multilingual Crisis Management System (MCMS)**.  
+> Runs three fine-tuned transformer models for crisis-type classification, humanitarian message typing, and urgency detection — with built-in multilingual translation and named-entity extraction.
 
-The service classifies crisis messages into disaster type, humanitarian/message type, and urgency level. It also extracts mentioned locations and affected community groups so the main MCMS backend can store clean, dashboard-friendly report data.
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/Transformers-4.41-FFD21E?logo=huggingface&logoColor=black)
+![spaCy](https://img.shields.io/badge/spaCy-3.7-09A3D5?logo=spacy&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## Features
+---
 
-- Crisis/disaster type classification
-- Humanitarian message type classification
-- Urgency level classification
-- Location extraction using spaCy NER with a Sri Lankan gazetteer fallback
-- Affected community extraction using rule-based keyword matching
-- Combined full-pipeline endpoint for one-call report analysis
-- Health endpoint for checking model and NLP component availability
-- CORS enabled for local web/backend integration
+## 📖 Table of Contents
 
-## System Role
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [ML Models](#ml-models)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [API Endpoints](#api-endpoints)
+- [Pipeline Flow](#pipeline-flow)
+- [Multilingual Support](#multilingual-support)
+- [Project Structure](#project-structure)
+- [Related Repositories](#related-repositories)
+- [License](#license)
 
-This repository is the Python AI service in the MCMS architecture.
+---
 
-```text
-Next.js frontend
-    -> Node.js/TypeScript backend
-        -> FastAPI AI backend
-            -> AI predictions + NLP extraction
-        -> MongoDB
+## Overview
+
+This service is a **standalone AI micro-service** that the Node.js backend calls over HTTP. It provides:
+
+- **Crisis-Type Classification** — identifies what kind of disaster (flood, earthquake, storm, etc.)
+- **Message-Type Classification** — categorises the humanitarian intent (request for help, infrastructure damage, rescue needed, etc.)
+- **Urgency Detection** — assigns an urgency level (🟢 Low, 🟠 Medium, 🔴 High)
+- **Location Extraction** — uses spaCy NER + a Sri Lankan gazetteer to find place names
+- **Community Detection** — identifies affected population groups (elderly, children, displaced, etc.)
+- **Multilingual Translation** — detects non-English input via Unicode script analysis and translates to English using the MyMemory API before running classification
+
+---
+
+## Architecture
+
+```
+                         ┌─────────────────────────────────────────────┐
+                         │            FastAPI Application              │
+                         │                                             │
+  POST /api/predict ────▶│  TranslationService ──▶ PipelineService     │
+                         │                           │                 │
+                         │            ┌──────────────┼──────────────┐  │
+                         │            ▼              ▼              ▼  │
+                         │      Model 1         Model 2       Model 3  │
+                         │    (Crisis Type)   (Message Type)  (Urgency)│
+                         │            │              │              │  │
+                         │            ▼              ▼              ▼  │
+                         │      PredictionService + ExtractionService  │
+                         └─────────────────────────────────────────────┘
+                                             │
+                                    JSON response
+                                             │
+                                             ▼
+                                    Node.js Backend
 ```
 
-The frontend should not call this service directly in production. The Node.js backend should call this API, validate the response, save the processed report in MongoDB, and return a clean response to the frontend.
+---
 
-## Models and NLP Components
+## ML Models
 
-| Component | Purpose | Directory / Method |
+| Model | Directory | Architecture | Task | Classes |
+|---|---|---|---|---|
+| **Model 1** | `mcms_model1_final/` | Fine-tuned XLM-RoBERTa | Crisis-type classification | Flood, Earthquake, Storm, Wildfire, etc. |
+| **Model 2** | `mcms_model2_humaid/` | Custom classifier (BERT-based + custom head) | Humanitarian message typing | Infrastructure Damage, Rescue, Displaced, etc. |
+| **Model 3** | `mcms_model3_final/` | Fine-tuned transformer | Urgency detection | Low, Medium, High |
+
+All models are loaded into GPU memory (if CUDA is available) at startup via the `ModelRegistry` and kept in evaluation mode for fast inference.
+
+> **Note:** Model weight files (`.safetensors`, `.pt`) are large binary files. Make sure [Git LFS](https://git-lfs.github.com/) is installed before cloning.
+
+---
+
+## Key Features
+
+| Feature | Description |
+|---|---|
+| **Three-Model Pipeline** | Runs crisis type, message type, and urgency classifiers in a single request |
+| **Multilingual Input** | Detects 14+ languages via Unicode script analysis (Sinhala, Tamil, Arabic, Hindi, Chinese, etc.) |
+| **MyMemory Translation** | Free, no-API-key translation via MyMemory REST API with automatic text chunking for long inputs |
+| **Sri Lanka Place Corrections** | Post-translation fixes for commonly mistranslated Sri Lankan place names (e.g. "City of Gems" → Ratnapura) |
+| **spaCy NER** | Named-entity recognition for location extraction using `en_core_web_sm` |
+| **Custom Gazetteer** | Sri Lanka-specific place name lookup for locations missed by the general spaCy model |
+| **Community Detection** | Pattern-based extraction of affected community groups from report text |
+| **Health Endpoint** | Reports load status of every model and spaCy pipeline |
+| **CUDA Support** | Automatic GPU detection and model offloading for faster inference |
+| **Confidence Scores** | Returns top-3 predictions with percentage confidence for each classifier |
+| **Latency Tracking** | Every response includes `latency_ms` for performance monitoring |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Python 3.11+ |
+| Framework | FastAPI 0.111 |
+| ML Framework | PyTorch 2.0+ |
+| Transformers | HuggingFace Transformers 4.41 |
+| NER | spaCy 3.7 (`en_core_web_sm`) |
+| Translation | MyMemory API (free, no key required) |
+| Validation | Pydantic 2.7 |
+| Server | Uvicorn 0.29 |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Python** ≥ 3.11
+- **pip** or **uv** for dependency management
+- (Optional) NVIDIA GPU with CUDA for faster inference
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/SandaruDulneth/mcms-backend-py.git
+cd mcms-backend-py
+
+# Create and activate a virtual environment
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# macOS / Linux
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Download the spaCy English model
+python -m spacy download en_core_web_sm
+
+# Start the development server
+uvicorn main:app --reload --port 8000
+```
+
+The service starts on **`http://localhost:8000`** by default.
+
+### Environment Variables (Optional)
+
+| Variable | Default | Description |
 |---|---|---|
-| Model 1 | Crisis/disaster type classification | `mcms_model1_final/` |
-| Model 2 | Humanitarian/message type classification | `mcms_model2_humaid/` |
-| Model 3 | Urgency classification | `mcms_model3_final/` |
-| Location extraction | Detects locations mentioned in the text | spaCy `en_core_web_sm` + Sri Lanka gazetteer |
-| Community extraction | Detects affected groups such as children, elderly, residents, farmers, etc. | Rule-based keyword matching |
+| `SPACY_MODEL` | `en_core_web_sm` | spaCy pipeline to load for NER |
+| `MODEL_MAX_LENGTH` | `128` | Maximum token length for tokenizer input |
+| `CORS_ORIGINS` | `*` | Comma-separated allowed CORS origins |
+
+---
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
+### Prediction
+
+| Method | Path | Description |
 |---|---|---|
-| `GET` | `/` | Basic service information |
-| `GET` | `/health` | Checks loaded model and NLP component status |
-| `POST` | `/predict/crisis-type` | Predicts disaster/crisis type |
-| `POST` | `/predict/message-type` | Predicts humanitarian message type |
-| `POST` | `/predict/urgency` | Predicts urgency level |
-| `POST` | `/extract/location` | Extracts locations from text |
-| `POST` | `/extract/community` | Extracts affected communities from text |
-| `POST` | `/predict/full` | Runs the full AI/NLP pipeline in one request |
+| `POST` | `/api/predict` | Full pipeline — classifies, extracts locations, detects communities |
+| `POST` | `/api/predict/multilingual` | Full pipeline with automatic language detection and translation |
+| `POST` | `/api/predict/crisis-type` | Crisis-type classification only (Model 1) |
+| `POST` | `/api/predict/message-type` | Message-type classification only (Model 2) |
+| `POST` | `/api/predict/urgency` | Urgency detection only (Model 3) |
 
-## Project Structure
+### Extraction
 
-```text
-.
-├── app/
-│   ├── api/                  # FastAPI routers and dependencies
-│   │   └── routes/           # Info, prediction, and extraction endpoints
-│   ├── core/                 # Settings and logging configuration
-│   ├── data/                 # Gazetteer and community keyword data
-│   ├── ml/                   # Model 2 architecture and model registry
-│   ├── schemas/              # Pydantic request schemas
-│   ├── services/             # Prediction, extraction, and full pipeline logic
-│   └── main.py               # Application factory and lifespan setup
-├── main.py                   # Lightweight Uvicorn entry point
-├── requirements.txt
-├── mcms_model1_final/
-├── mcms_model2_humaid/
-├── mcms_model3_final/
-└── README.md
-```
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/extract/locations` | spaCy NER + gazetteer location extraction |
+| `POST` | `/api/extract/communities` | Affected community group detection |
 
-## Requirements
+### System
 
-- Python 3.10+
-- pip
-- Virtual environment recommended
-- CPU is supported; CUDA GPU is used automatically if available
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/info/health` | Model load status, device info, and service health |
+| `GET` | `/docs` | Interactive Swagger UI documentation |
 
-## Setup
-
-Create and activate a virtual environment:
+### Example Request
 
 ```bash
-python -m venv venv
-```
-
-Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-macOS/Linux:
-
-```bash
-source venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Install the spaCy English model:
-
-```bash
-python -m spacy download en_core_web_sm
-```
-
-## Running the API
-
-```bash
-python -m uvicorn main:app --reload --port 8000
-```
-
-The API will be available at:
-
-```text
-http://localhost:8000
-```
-
-Interactive API documentation:
-
-```text
-http://localhost:8000/docs
-```
-
-## Example: Full Prediction
-
-Request:
-
-```bash
-curl -X POST "http://localhost:8000/predict/full" \
+curl -X POST http://localhost:8000/api/predict/multilingual \
   -H "Content-Type: application/json" \
-  -d '{
-    "text": "Elderly residents and children trapped on rooftops as flash floods submerge Ratnapura and Kegalle. Urgent rescue needed, water levels rising fast."
-  }'
+  -d '{"text": "ගම්පහ දිස්ත්‍රික්කයේ ගංවතුරට ජනතාව දැඩි ලෙස පීඩා විඳිනවා"}'
 ```
 
-Example response:
+### Example Response
 
 ```json
 {
-  "input_text": "Elderly residents and children trapped on rooftops as flash floods submerge Ratnapura and Kegalle. Urgent rescue needed, water levels rising fast.",
+  "original_text": "ගම්පහ දිස්ත්‍රික්කයේ ගංවතුරට ජනතාව දැඩි ලෙස පීඩා විඳිනවා",
+  "detected_language": "Sinhala",
+  "language_code": "si",
+  "was_translated": true,
+  "translated_text": "People are severely affected by floods in Gampaha district",
   "crisis_type": {
     "crisis_type": "flood",
-    "confidence": 99.72
+    "confidence": 94.32,
+    "top_3": [["flood", 94.32], ["storm", 3.21], ["landslide", 1.08]]
   },
   "message_type": {
-    "message_type": "requests_or_urgent_needs",
-    "confidence": 91.45
+    "message_type": "displaced_people_and_evacuations",
+    "confidence": 67.85
   },
   "urgency": {
     "urgency_level": "High",
     "emoji": "🔴",
-    "confidence": 97.49
+    "confidence": 88.14
   },
   "location_extraction": {
-    "locations": [
-      {
-        "text": "Ratnapura",
-        "label": "GPE",
-        "source": "gazetteer"
-      },
-      {
-        "text": "Kegalle",
-        "label": "GPE",
-        "source": "gazetteer"
-      }
-    ],
-    "location_count": 2,
-    "has_location": true
+    "locations": [{"text": "Gampaha", "label": "GPE", "source": "gazetteer"}],
+    "location_count": 1
   },
-  "community_extraction": {
-    "affected_communities": [
-      {
-        "community": "elderly",
-        "matched_text": "Elderly"
-      },
-      {
-        "community": "children",
-        "matched_text": "children"
-      },
-      {
-        "community": "residents",
-        "matched_text": "residents"
-      }
-    ],
-    "community_count": 3,
-    "has_community": true
-  },
-  "latency_ms": 813.6,
-  "summary": "Crisis: flood (99.72%) | Type: requests_or_urgent_needs (91.45%) | Urgency: 🔴 High (97.49%) | Location: Ratnapura, Kegalle | Communities: elderly, children, residents"
+  "summary": "Crisis: flood (94.32%) | Type: displaced_people_and_evacuations (67.85%) | Urgency: 🔴 High (88.14%) | Location: Gampaha",
+  "latency_ms": 142.5
 }
 ```
 
-## Request Body
+---
 
-Most endpoints accept the following JSON body:
+## Pipeline Flow
 
-```json
-{
-  "text": "Crisis report text goes here"
-}
+```
+Input Text
+    │
+    ▼
+┌─────────────────────────┐
+│ Language Detection       │  ◀── Unicode script range analysis
+│ (Sinhala, Tamil, etc.)   │
+└────────────┬────────────┘
+             │ non-English?
+             ▼
+┌─────────────────────────┐
+│ MyMemory Translation     │  ◀── Free API, chunked for long text
+│ + Place Name Corrections │
+└────────────┬────────────┘
+             │ English text
+             ▼
+┌─────────────────────────┐
+│ Model 1: Crisis Type     │  ◀── XLM-RoBERTa classifier
+├─────────────────────────┤
+│ Model 2: Message Type    │  ◀── Custom BERT + classification head
+├─────────────────────────┤
+│ Model 3: Urgency         │  ◀── Fine-tuned transformer
+├─────────────────────────┤
+│ spaCy NER + Gazetteer    │  ◀── Location extraction
+├─────────────────────────┤
+│ Community Detection      │  ◀── Pattern-based keyword matching
+└────────────┬────────────┘
+             │
+             ▼
+      JSON Response
 ```
 
-## Health Check
+---
 
-```bash
-curl http://localhost:8000/health
+## Multilingual Support
+
+The service supports **14+ languages** via Unicode script detection:
+
+| Language | Script | Code |
+|---|---|---|
+| Sinhala | `U+0D80–U+0DFF` | `si` |
+| Tamil | `U+0B80–U+0BFF` | `ta` |
+| Arabic | `U+0600–U+06FF` | `ar` |
+| Hindi | `U+0900–U+097F` (Devanagari) | `hi` |
+| Bengali | `U+0980–U+09FF` | `bn` |
+| Chinese | `U+4E00–U+9FFF` | `zh` |
+| Japanese | `U+3040–U+309F` (Hiragana) | `ja` |
+| Korean | `U+AC00–U+D7AF` | `ko` |
+| French, German, Spanish, Portuguese, Russian, Urdu | Latin/Cyrillic fallback | various |
+
+Translation is performed via the **MyMemory API** — free and requires no API key.
+
+---
+
+## Project Structure
+
+```
+mcms-backend-py/
+├── main.py                         # Uvicorn entry point
+├── requirements.txt                # Python dependencies
+├── app/
+│   ├── main.py                     # FastAPI app factory with lifespan
+│   ├── core/
+│   │   ├── config.py               # Settings dataclass (model dirs, CORS, etc.)
+│   │   └── logging.py              # Logging configuration
+│   ├── api/
+│   │   ├── router.py               # Top-level API router
+│   │   ├── dependencies.py         # FastAPI dependency injection
+│   │   └── routes/
+│   │       ├── predict.py          # /api/predict endpoints
+│   │       ├── extract.py          # /api/extract endpoints
+│   │       └── info.py             # /api/info/health endpoint
+│   ├── ml/
+│   │   ├── registry.py             # ModelRegistry — loads all models at startup
+│   │   └── model2.py               # Custom PyTorch architecture for Model 2
+│   ├── schemas/                    # Pydantic request/response models
+│   ├── services/
+│   │   ├── pipeline_service.py     # Orchestrates full prediction pipeline
+│   │   ├── prediction_service.py   # Individual model inference (Model 1, 2, 3)
+│   │   ├── extraction_service.py   # spaCy NER + gazetteer + community detection
+│   │   └── translation_service.py  # MyMemory language detection & translation
+│   └── data/
+│       └── extraction_data.py      # Sri Lanka gazetteer, community keywords, exclusion lists
+├── mcms_model1_final/              # Crisis-type classifier weights & tokenizer
+├── mcms_model2_humaid/             # Message-type classifier weights & tokenizer
+└── mcms_model3_final/              # Urgency classifier weights & tokenizer
 ```
 
-The health endpoint reports whether the three ML models and spaCy NER component were loaded successfully.
+---
 
-## Integration Notes
+## Related Repositories
 
-The recommended integration pattern is:
+| Repository | Description |
+|---|---|
+| [mcms-backend-ts](../mcms-backend-ts) | Node.js/Express REST API — report management, credibility scoring, GDACS/NewsAPI integration |
+| [mcms-frontend-ts](../mcms-frontend-ts) | Next.js 16 dashboard, crisis map, analytics, and public report submission |
 
-1. User submits a crisis report through the frontend.
-2. Node.js backend receives the report.
-3. Node.js backend calls `POST /predict/full` on this FastAPI service.
-4. Node.js backend validates the AI response.
-5. Node.js backend saves the processed report in MongoDB.
-6. Frontend displays disaster type, message type, urgency, extracted locations, and affected communities.
-
-## Current Limitations
-
-- Multilingual processing is planned but not fully implemented yet.
-- Location extraction currently combines spaCy English NER with a Sri Lankan gazetteer fallback.
-- Affected community extraction is rule-based and depends on the keyword list in `app/data/extraction_data.py`.
-- Model performance and response latency may vary depending on hardware.
-- This service is intended for development/research use and should be reviewed before production deployment.
-
-## Future Improvements
-
-- Improve model inference speed and startup time
-- Add stronger error handling and structured logging
-- Extend multilingual support for Sinhala, Tamil, and English crisis messages
-- Expand the gazetteer and affected community keyword list
-- Add automated tests for endpoint responses
-- Add deployment configuration for production environments
+---
 
 ## License
 
-Add a license before publishing this repository publicly.
+This project is part of a Final Year Project at the University level.
+]]>

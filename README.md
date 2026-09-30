@@ -1,4 +1,4 @@
-<![CDATA[# 🧠 MCMS AI Service — NLP Classification & Translation Pipeline
+# 🧠 MCMS AI Service — NLP Classification & Translation Pipeline
 
 > FastAPI micro-service powering the AI backbone of the **Multilingual Crisis Management System (MCMS)**.  
 > Runs three fine-tuned transformer models for crisis-type classification, humanitarian message typing, and urgency detection — with built-in multilingual translation and named-entity extraction.
@@ -331,4 +331,4 @@ mcms-backend-py/
 ## License
 
 This project is part of a Final Year Project at the University level.
-]]>
+

@@ -323,8 +323,8 @@ mcms-backend-py/
 
 | Repository | Description |
 |---|---|
-| [mcms-backend-ts](../mcms-backend-ts) | Node.js/Express REST API — report management, credibility scoring, GDACS/NewsAPI integration |
-| [mcms-frontend-ts](../mcms-frontend-ts) | Next.js 16 dashboard, crisis map, analytics, and public report submission |
+| [mcms-backend-ts](https://github.com/SandaruDulneth/mcms-backend-ts) | Node.js/Express REST API — report management, credibility scoring, GDACS/NewsAPI integration |
+| [mcms-frontend-ts](https://github.com/SandaruDulneth/mcms-frontend-ts) | Next.js 16 dashboard, crisis map, analytics, and public report submission |
 
 ---
 
